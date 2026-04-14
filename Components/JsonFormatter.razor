@@ -1,0 +1,140 @@
+@using System.Text.Json
+@inject IJSRuntime JS
+
+<article class="tool-surface" aria-labelledby="json-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">JSON</p>
+            <h2 id="json-title">Formatter</h2>
+            <p>Paste a payload, then format it for reading or compress it for a request body.</p>
+        </div>
+        <span class="status-pill @(JsonValid ? "is-ok" : "is-muted")">@JsonStatus</span>
+    </header>
+
+    <div class="editor-grid">
+        <label class="field-block">
+            <span>Input</span>
+            <textarea spellcheck="false" @bind="JsonInput" @bind:event="oninput" aria-label="JSON input"></textarea>
+        </label>
+
+        <label class="field-block">
+            <span>Output</span>
+            <textarea spellcheck="false" readonly value="@JsonOutput" aria-label="JSON output"></textarea>
+        </label>
+    </div>
+
+    <div class="button-row">
+        <button type="button" @onclick="FormatJson">Format</button>
+        <button type="button" @onclick="MinifyJson">Minify</button>
+        <button type="button" class="button-secondary" @onclick="CopyOutput" disabled="@string.IsNullOrWhiteSpace(JsonOutput)">Copy output</button>
+    </div>
+
+    <div class="metric-grid" aria-label="JSON stats">
+        <div>
+            <span>Nodes</span>
+            <strong>@NodeCount</strong>
+        </div>
+        <div>
+            <span>Depth</span>
+            <strong>@MaxDepth</strong>
+        </div>
+        <div>
+            <span>Bytes</span>
+            <strong>@ByteCount</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(JsonMessage))
+    {
+        <p class="tool-message @JsonMessageClass">@JsonMessage</p>
+    }
+</article>
+
+@code {
+    private string JsonInput { get; set; } = "{\n  \"site\": \"PavelBu tools\",\n  \"host\": \"GitHub Pages\",\n  \"tools\": [\"json\", \"text\", \"url\", \"color\"]\n}";
+
+    private string JsonOutput { get; set; } = string.Empty;
+    private string JsonMessage { get; set; } = string.Empty;
+    private string JsonMessageClass { get; set; } = "is-ok";
+    private string JsonStatus => JsonValid ? "Valid JSON" : "Waiting";
+    private bool JsonValid { get; set; }
+    private int NodeCount { get; set; }
+    private int MaxDepth { get; set; }
+    private int ByteCount { get; set; }
+
+    protected override void OnInitialized()
+    {
+        FormatJson();
+    }
+
+    private void FormatJson()
+    {
+        TransformJson(writeIndented: true);
+    }
+
+    private void MinifyJson()
+    {
+        TransformJson(writeIndented: false);
+    }
+
+    private void TransformJson(bool writeIndented)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(JsonInput);
+            JsonOutput = JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions { WriteIndented = writeIndented });
+            NodeCount = CountNodes(document.RootElement);
+            MaxDepth = MeasureDepth(document.RootElement);
+            ByteCount = System.Text.Encoding.UTF8.GetByteCount(JsonOutput);
+            JsonValid = true;
+            JsonMessageClass = "is-ok";
+            JsonMessage = writeIndented ? "Formatted and ready." : "Minified and ready.";
+        }
+        catch (JsonException exception)
+        {
+            JsonOutput = string.Empty;
+            NodeCount = 0;
+            MaxDepth = 0;
+            ByteCount = 0;
+            JsonValid = false;
+            JsonMessageClass = "is-error";
+            JsonMessage = $"Could not parse JSON: {exception.Message}";
+        }
+    }
+
+    private async Task CopyOutput()
+    {
+        if (string.IsNullOrWhiteSpace(JsonOutput))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", JsonOutput);
+        JsonMessageClass = "is-ok";
+        JsonMessage = "Copied to clipboard.";
+    }
+
+    private static int CountNodes(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Object => 1 + element.EnumerateObject().Sum(property => CountNodes(property.Value)),
+            JsonValueKind.Array => 1 + element.EnumerateArray().Sum(CountNodes),
+            _ => 1
+        };
+    }
+
+    private static int MeasureDepth(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Object => element.EnumerateObject().Any()
+                ? 1 + element.EnumerateObject().Max(property => MeasureDepth(property.Value))
+                : 1,
+            JsonValueKind.Array => element.EnumerateArray().Any()
+                ? 1 + element.EnumerateArray().Max(MeasureDepth)
+                : 1,
+            _ => 1
+        };
+    }
+}

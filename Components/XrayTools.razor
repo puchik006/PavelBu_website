@@ -1,0 +1,94 @@
+@using System.Globalization
+
+<article class="tool-surface" aria-labelledby="xray-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">X-Ray</p>
+            <h2 id="xray-title">Exposure math</h2>
+            <p>Estimate mAs changes for distance shifts and keep quick technique notes tidy.</p>
+        </div>
+        <span class="status-pill is-muted">Reference only</span>
+    </header>
+
+    <div class="calculator-grid">
+        <section class="calc-panel" aria-labelledby="distance-title">
+            <h3 id="distance-title">Distance mAs</h3>
+            <div class="number-grid">
+                <label class="numeric-field">
+                    <span>Original SID, cm</span>
+                    <input type="number" min="1" step="0.1" @bind="OriginalSidCm" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>New SID, cm</span>
+                    <input type="number" min="1" step="0.1" @bind="NewSidCm" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Original mAs</span>
+                    <input type="number" min="0" step="0.1" @bind="OriginalMas" />
+                </label>
+            </div>
+        </section>
+
+        <section class="calc-panel" aria-labelledby="technique-title">
+            <h3 id="technique-title">Technique note</h3>
+            <div class="number-grid">
+                <label class="numeric-field">
+                    <span>kVp</span>
+                    <input type="number" min="0" step="1" @bind="Kvp" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>mA</span>
+                    <input type="number" min="0" step="1" @bind="TubeCurrentMa" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Exposure, ms</span>
+                    <input type="number" min="0" step="1" @bind="ExposureMs" />
+                </label>
+            </div>
+        </section>
+    </div>
+
+    <div class="metric-grid" aria-label="X-Ray exposure results">
+        <div>
+            <span>New mAs</span>
+            <strong>@FormatNumber(NewMas)</strong>
+        </div>
+        <div>
+            <span>Distance factor</span>
+            <strong>@FormatNumber(DistanceFactor)x</strong>
+        </div>
+        <div>
+            <span>Calculated mAs</span>
+            <strong>@FormatNumber(CalculatedMas)</strong>
+        </div>
+        <div>
+            <span>Technique</span>
+            <strong>@TechniqueSummary</strong>
+        </div>
+    </div>
+
+    <p class="tool-message is-note">For notes and sanity checks only. Follow site protocol and equipment guidance for clinical or safety-critical work.</p>
+</article>
+
+@code {
+    private double OriginalSidCm { get; set; } = 100;
+    private double NewSidCm { get; set; } = 180;
+    private double OriginalMas { get; set; } = 4;
+    private double Kvp { get; set; } = 70;
+    private double TubeCurrentMa { get; set; } = 200;
+    private double ExposureMs { get; set; } = 50;
+
+    private double DistanceFactor => OriginalSidCm <= 0 ? 0 : Math.Pow(NewSidCm / OriginalSidCm, 2);
+    private double NewMas => OriginalMas * DistanceFactor;
+    private double CalculatedMas => TubeCurrentMa * (ExposureMs / 1_000);
+    private string TechniqueSummary => $"{FormatNumber(Kvp)} kVp / {FormatNumber(CalculatedMas)} mAs";
+
+    private static string FormatNumber(double value)
+    {
+        return double.IsFinite(value) ? value.ToString("0.###", CultureInfo.InvariantCulture) : "0";
+    }
+}

@@ -1,0 +1,96 @@
+@using System.Globalization
+
+<article class="tool-surface" aria-labelledby="radiation-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">Radiation</p>
+            <h2 id="radiation-title">Dose notes</h2>
+            <p>Convert simple dose units and estimate accumulated dose from a steady dose rate.</p>
+        </div>
+        <span class="status-pill is-muted">Reference only</span>
+    </header>
+
+    <div class="calculator-grid">
+        <section class="calc-panel" aria-labelledby="dose-rate-title">
+            <h3 id="dose-rate-title">Dose rate</h3>
+            <div class="number-grid">
+                <label class="numeric-field">
+                    <span>Dose rate, uSv/h</span>
+                    <input type="number" min="0" step="0.001" @bind="DoseRateMicroSvPerHour" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Time, hours</span>
+                    <input type="number" min="0" step="0.01" @bind="ExposureHours" />
+                </label>
+            </div>
+        </section>
+
+        <section class="calc-panel" aria-labelledby="dose-converter-title">
+            <h3 id="dose-converter-title">Dose converter</h3>
+            <div class="number-grid">
+                <label class="numeric-field">
+                    <span>Dose</span>
+                    <input type="number" min="0" step="0.001" @bind="DoseInput" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Unit</span>
+                    <select @bind="DoseUnit">
+                        <option value="uSv">uSv</option>
+                        <option value="mSv">mSv</option>
+                        <option value="Sv">Sv</option>
+                    </select>
+                </label>
+            </div>
+        </section>
+    </div>
+
+    <div class="metric-grid" aria-label="Radiation dose-rate results">
+        <div>
+            <span>Total dose</span>
+            <strong>@FormatNumber(TotalMicroSv) uSv</strong>
+        </div>
+        <div>
+            <span>Total dose</span>
+            <strong>@FormatNumber(TotalMilliSv) mSv</strong>
+        </div>
+        <div>
+            <span>Converted</span>
+            <strong>@FormatNumber(ConvertedMicroSv) uSv</strong>
+        </div>
+        <div>
+            <span>Converted</span>
+            <strong>@FormatNumber(ConvertedMilliSv) mSv</strong>
+        </div>
+    </div>
+
+    <p class="tool-message is-note">For notes and sanity checks only. Use calibrated instruments and local procedures for real radiation safety decisions.</p>
+</article>
+
+@code {
+    private double DoseRateMicroSvPerHour { get; set; } = 2.5;
+    private double ExposureHours { get; set; } = 8;
+    private double DoseInput { get; set; } = 1;
+    private string DoseUnit { get; set; } = "mSv";
+
+    private double TotalMicroSv => Clamp(DoseRateMicroSvPerHour) * Clamp(ExposureHours);
+    private double TotalMilliSv => TotalMicroSv / 1_000;
+    private double ConvertedMicroSv => DoseUnit switch
+    {
+        "Sv" => Clamp(DoseInput) * 1_000_000,
+        "mSv" => Clamp(DoseInput) * 1_000,
+        _ => Clamp(DoseInput)
+    };
+    private double ConvertedMilliSv => ConvertedMicroSv / 1_000;
+
+    private static double Clamp(double value)
+    {
+        return double.IsFinite(value) && value > 0 ? value : 0;
+    }
+
+    private static string FormatNumber(double value)
+    {
+        return value.ToString("0.###", CultureInfo.InvariantCulture);
+    }
+}

@@ -1,0 +1,109 @@
+@using System.Text
+@inject IJSRuntime JS
+
+<article class="tool-surface" aria-labelledby="url-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">URL</p>
+            <h2 id="url-title">Encoder</h2>
+            <p>Encode query values, decode copied links, or move small strings through Base64.</p>
+        </div>
+        <span class="status-pill @(IsError ? "is-muted" : "is-ok")">@StatusText</span>
+    </header>
+
+    <div class="editor-grid">
+        <label class="field-block">
+            <span>Input</span>
+            <textarea @bind="UrlInput" @bind:event="oninput" spellcheck="false" aria-label="URL input"></textarea>
+        </label>
+
+        <label class="field-block">
+            <span>Output</span>
+            <textarea readonly spellcheck="false" value="@UrlOutput" aria-label="URL output"></textarea>
+        </label>
+    </div>
+
+    <div class="button-row">
+        <button type="button" @onclick="EncodeUrl">Encode URL</button>
+        <button type="button" class="button-secondary" @onclick="DecodeUrl">Decode URL</button>
+        <button type="button" class="button-secondary" @onclick="EncodeBase64">Base64 encode</button>
+        <button type="button" class="button-secondary" @onclick="DecodeBase64">Base64 decode</button>
+        <button type="button" class="button-secondary" @onclick="CopyOutput" disabled="@string.IsNullOrWhiteSpace(UrlOutput)">Copy output</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(UrlMessage))
+    {
+        <p class="tool-message @(IsError ? "is-error" : "is-ok")">@UrlMessage</p>
+    }
+</article>
+
+@code {
+    private string UrlInput { get; set; } = "name=Pavel Bu&host=GitHub Pages";
+    private string UrlOutput { get; set; } = string.Empty;
+    private string UrlMessage { get; set; } = string.Empty;
+    private string StatusText => IsError ? "Needs attention" : "Ready";
+    private bool IsError { get; set; }
+
+    protected override void OnInitialized()
+    {
+        EncodeUrl();
+    }
+
+    private void EncodeUrl()
+    {
+        UrlOutput = Uri.EscapeDataString(UrlInput);
+        UrlMessage = "URL-encoded output is ready.";
+        IsError = false;
+    }
+
+    private void DecodeUrl()
+    {
+        try
+        {
+            UrlOutput = Uri.UnescapeDataString(UrlInput);
+            UrlMessage = "URL-decoded output is ready.";
+            IsError = false;
+        }
+        catch (UriFormatException exception)
+        {
+            UrlOutput = string.Empty;
+            UrlMessage = exception.Message;
+            IsError = true;
+        }
+    }
+
+    private void EncodeBase64()
+    {
+        UrlOutput = Convert.ToBase64String(Encoding.UTF8.GetBytes(UrlInput));
+        UrlMessage = "Base64 output is ready.";
+        IsError = false;
+    }
+
+    private void DecodeBase64()
+    {
+        try
+        {
+            UrlOutput = Encoding.UTF8.GetString(Convert.FromBase64String(UrlInput));
+            UrlMessage = "Base64 decoded output is ready.";
+            IsError = false;
+        }
+        catch (FormatException exception)
+        {
+            UrlOutput = string.Empty;
+            UrlMessage = exception.Message;
+            IsError = true;
+        }
+    }
+
+    private async Task CopyOutput()
+    {
+        if (string.IsNullOrWhiteSpace(UrlOutput))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", UrlOutput);
+        UrlMessage = "Copied to clipboard.";
+        IsError = false;
+    }
+}

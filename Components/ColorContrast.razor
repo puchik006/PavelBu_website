@@ -1,0 +1,147 @@
+@using System.Globalization
+
+<article class="tool-surface" aria-labelledby="color-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">Color</p>
+            <h2 id="color-title">Contrast checker</h2>
+            <p>Pair text and background colors, then check the ratio against WCAG thresholds.</p>
+        </div>
+        <span class="status-pill @(PassesAaNormal ? "is-ok" : "is-muted")">@RatioText</span>
+    </header>
+
+    <div class="color-layout">
+        <div class="color-controls">
+            <label class="color-field">
+                <span>Text</span>
+                <input type="color" @bind="Foreground" aria-label="Text color picker" />
+                <input class="hex-input" maxlength="7" @bind="Foreground" @bind:event="oninput" aria-label="Text color hex" />
+            </label>
+
+            <label class="color-field">
+                <span>Background</span>
+                <input type="color" @bind="Background" aria-label="Background color picker" />
+                <input class="hex-input" maxlength="7" @bind="Background" @bind:event="oninput" aria-label="Background color hex" />
+            </label>
+
+            <div class="button-row">
+                <button type="button" @onclick="SwapColors">Swap</button>
+                <button type="button" class="button-secondary" @onclick="UseInkMint">Ink and mint</button>
+                <button type="button" class="button-secondary" @onclick="UseCoralPaper">Coral and paper</button>
+            </div>
+        </div>
+
+        <div class="contrast-preview" style="@PreviewStyle">
+            <p class="eyebrow">Preview</p>
+            <h3>Readable tools feel faster.</h3>
+            <p>Small labels, long payloads, and action buttons need enough contrast to stay comfortable.</p>
+        </div>
+    </div>
+
+    <div class="metric-grid" aria-label="Contrast stats">
+        <div>
+            <span>Ratio</span>
+            <strong>@RatioText</strong>
+        </div>
+        <div>
+            <span>AA normal</span>
+            <strong>@(PassesAaNormal ? "Pass" : "Fail")</strong>
+        </div>
+        <div>
+            <span>AA large</span>
+            <strong>@(PassesAaLarge ? "Pass" : "Fail")</strong>
+        </div>
+        <div>
+            <span>AAA normal</span>
+            <strong>@(PassesAaaNormal ? "Pass" : "Fail")</strong>
+        </div>
+    </div>
+</article>
+
+@code {
+    private string Foreground { get; set; } = "#111111";
+    private string Background { get; set; } = "#ffffff";
+
+    private double ContrastRatio => CalculateContrast(Foreground, Background);
+    private string RatioText => $"{ContrastRatio:0.00}:1";
+    private bool PassesAaNormal => ContrastRatio >= 4.5;
+    private bool PassesAaLarge => ContrastRatio >= 3;
+    private bool PassesAaaNormal => ContrastRatio >= 7;
+    private string PreviewStyle => $"color: {SafeHex(Foreground, "#111111")}; background-color: {SafeHex(Background, "#ffffff")};";
+
+    private void SwapColors()
+    {
+        (Foreground, Background) = (Background, Foreground);
+    }
+
+    private void UseInkMint()
+    {
+        Foreground = "#10221f";
+        Background = "#aee8d2";
+    }
+
+    private void UseCoralPaper()
+    {
+        Foreground = "#101010";
+        Background = "#ffd8d2";
+    }
+
+    private static double CalculateContrast(string foreground, string background)
+    {
+        var foregroundLuminosity = RelativeLuminance(ParseHex(foreground, "#111111"));
+        var backgroundLuminosity = RelativeLuminance(ParseHex(background, "#ffffff"));
+        var lighter = Math.Max(foregroundLuminosity, backgroundLuminosity);
+        var darker = Math.Min(foregroundLuminosity, backgroundLuminosity);
+
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static (byte Red, byte Green, byte Blue) ParseHex(string value, string fallback)
+    {
+        var hex = NormalizeHex(value) ?? NormalizeHex(fallback) ?? "000000";
+        return (
+            byte.Parse(hex[..2], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+            byte.Parse(hex.Substring(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+            byte.Parse(hex.Substring(4, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture)
+        );
+    }
+
+    private static string SafeHex(string value, string fallback)
+    {
+        var hex = NormalizeHex(value) ?? NormalizeHex(fallback) ?? "000000";
+        return $"#{hex}";
+    }
+
+    private static string? NormalizeHex(string value)
+    {
+        var hex = value.Trim().TrimStart('#');
+
+        if (hex.Length == 3 && hex.All(IsHexDigit))
+        {
+            return string.Concat(hex.Select(character => $"{character}{character}")).ToLowerInvariant();
+        }
+
+        return hex.Length == 6 && hex.All(IsHexDigit) ? hex.ToLowerInvariant() : null;
+    }
+
+    private static bool IsHexDigit(char character)
+    {
+        return character is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F';
+    }
+
+    private static double RelativeLuminance((byte Red, byte Green, byte Blue) color)
+    {
+        var red = ToLinear(color.Red / 255d);
+        var green = ToLinear(color.Green / 255d);
+        var blue = ToLinear(color.Blue / 255d);
+
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    }
+
+    private static double ToLinear(double channel)
+    {
+        return channel <= 0.03928
+            ? channel / 12.92
+            : Math.Pow((channel + 0.055) / 1.055, 2.4);
+    }
+}

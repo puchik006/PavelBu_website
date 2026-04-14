@@ -1,0 +1,148 @@
+@using System.Globalization
+@using System.Text
+@using System.Text.RegularExpressions
+@inject IJSRuntime JS
+
+<article class="tool-surface" aria-labelledby="text-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">Text</p>
+            <h2 id="text-title">Cleaner</h2>
+            <p>Turn rough copy into slugs, titles, compact lines, or plain case changes.</p>
+        </div>
+        <span class="status-pill is-ok">@WordCount words</span>
+    </header>
+
+    <div class="editor-grid">
+        <label class="field-block">
+            <span>Input</span>
+            <textarea @bind="TextInput" @bind:event="oninput" spellcheck="true" aria-label="Text input"></textarea>
+        </label>
+
+        <label class="field-block">
+            <span>Output</span>
+            <textarea readonly spellcheck="false" value="@TextOutput" aria-label="Text output"></textarea>
+        </label>
+    </div>
+
+    <div class="button-row">
+        @foreach (var mode in Modes)
+        {
+            <button type="button"
+                    class="@(SelectedMode == mode.Id ? null : "button-secondary")"
+                    @onclick="() => ApplyMode(mode.Id)">
+                @mode.Label
+            </button>
+        }
+        <button type="button" class="button-secondary" @onclick="CopyOutput" disabled="@string.IsNullOrWhiteSpace(TextOutput)">Copy output</button>
+    </div>
+
+    <div class="metric-grid" aria-label="Text stats">
+        <div>
+            <span>Characters</span>
+            <strong>@CharacterCount</strong>
+        </div>
+        <div>
+            <span>Words</span>
+            <strong>@WordCount</strong>
+        </div>
+        <div>
+            <span>Lines</span>
+            <strong>@LineCount</strong>
+        </div>
+        <div>
+            <span>Bytes</span>
+            <strong>@ByteCount</strong>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(TextMessage))
+    {
+        <p class="tool-message is-ok">@TextMessage</p>
+    }
+</article>
+
+@code {
+    private static readonly TextMode[] Modes =
+    [
+        new("slug", "Slug"),
+        new("title", "Title case"),
+        new("upper", "Uppercase"),
+        new("lower", "Lowercase"),
+        new("spaces", "Clean spaces")
+    ];
+
+    private string TextInput { get; set; } = "Static tools for GitHub Pages";
+    private string TextOutput { get; set; } = string.Empty;
+    private string SelectedMode { get; set; } = "slug";
+    private string TextMessage { get; set; } = string.Empty;
+
+    private int CharacterCount => TextInput.Length;
+    private int WordCount => Regex.Matches(TextInput, @"[\p{L}\p{M}\p{N}']+").Count;
+    private int LineCount => TextInput.Length == 0 ? 0 : TextInput.Split('\n').Length;
+    private int ByteCount => Encoding.UTF8.GetByteCount(TextInput);
+
+    protected override void OnInitialized()
+    {
+        ApplyMode(SelectedMode);
+    }
+
+    private void ApplyMode(string mode)
+    {
+        SelectedMode = mode;
+        TextOutput = mode switch
+        {
+            "slug" => ToSlug(TextInput),
+            "title" => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(TextInput.ToLower(CultureInfo.CurrentCulture)),
+            "upper" => TextInput.ToUpper(CultureInfo.CurrentCulture),
+            "lower" => TextInput.ToLower(CultureInfo.CurrentCulture),
+            "spaces" => Regex.Replace(TextInput.Trim(), @"\s+", " "),
+            _ => TextInput
+        };
+        TextMessage = $"{Modes.First(item => item.Id == mode).Label} output is ready.";
+    }
+
+    private async Task CopyOutput()
+    {
+        if (string.IsNullOrWhiteSpace(TextOutput))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", TextOutput);
+        TextMessage = "Copied to clipboard.";
+    }
+
+    private static string ToSlug(string input)
+    {
+        var normalized = input.Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+        var previousWasDash = false;
+
+        foreach (var character in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(char.ToLowerInvariant(character));
+                previousWasDash = false;
+                continue;
+            }
+
+            if (!previousWasDash && builder.Length > 0)
+            {
+                builder.Append('-');
+                previousWasDash = true;
+            }
+        }
+
+        return builder.ToString().Trim('-');
+    }
+
+    private sealed record TextMode(string Id, string Label);
+}

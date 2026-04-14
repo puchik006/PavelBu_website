@@ -1,0 +1,131 @@
+@using System.Globalization
+@using System.Text
+@inject IJSRuntime JS
+
+<article class="tool-surface" aria-labelledby="it-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">IT</p>
+            <h2 id="it-title">Payload desk</h2>
+            <p>Convert data sizes and encode small strings without leaving the page.</p>
+        </div>
+        <span class="status-pill is-ok">@FormatNumber(Bytes) bytes</span>
+    </header>
+
+    <div class="calculator-grid">
+        <section class="calc-panel" aria-labelledby="data-title">
+            <h3 id="data-title">Data size</h3>
+            <div class="number-grid">
+                <label class="numeric-field">
+                    <span>Amount</span>
+                    <input type="number" min="0" step="0.001" @bind="DataAmount" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Unit</span>
+                    <select @bind="DataUnit">
+                        <option value="B">B</option>
+                        <option value="KB">KB</option>
+                        <option value="MB">MB</option>
+                        <option value="GB">GB</option>
+                        <option value="KiB">KiB</option>
+                        <option value="MiB">MiB</option>
+                        <option value="GiB">GiB</option>
+                    </select>
+                </label>
+            </div>
+        </section>
+
+        <section class="calc-panel" aria-labelledby="payload-title">
+            <h3 id="payload-title">Payload</h3>
+            <label class="field-block compact-field">
+                <span>Input</span>
+                <textarea @bind="PayloadInput" @bind:event="oninput" spellcheck="false" aria-label="Payload input"></textarea>
+            </label>
+        </section>
+    </div>
+
+    <div class="metric-grid" aria-label="IT data size results">
+        <div>
+            <span>Bytes</span>
+            <strong>@FormatNumber(Bytes)</strong>
+        </div>
+        <div>
+            <span>KiB</span>
+            <strong>@FormatNumber(Bytes / 1_024)</strong>
+        </div>
+        <div>
+            <span>MiB</span>
+            <strong>@FormatNumber(Bytes / 1_048_576)</strong>
+        </div>
+        <div>
+            <span>GB</span>
+            <strong>@FormatNumber(Bytes / 1_000_000_000)</strong>
+        </div>
+    </div>
+
+    <div class="output-stack">
+        <label class="field-block compact-field">
+            <span>Base64</span>
+            <textarea readonly spellcheck="false" value="@Base64Output" aria-label="Base64 output"></textarea>
+        </label>
+
+        <label class="field-block compact-field">
+            <span>URL encoded</span>
+            <textarea readonly spellcheck="false" value="@UrlEncodedOutput" aria-label="URL encoded output"></textarea>
+        </label>
+    </div>
+
+    <div class="button-row">
+        <button type="button" @onclick="CopyBase64" disabled="@string.IsNullOrWhiteSpace(Base64Output)">Copy Base64</button>
+        <button type="button" class="button-secondary" @onclick="CopyUrl" disabled="@string.IsNullOrWhiteSpace(UrlEncodedOutput)">Copy URL encoded</button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="tool-message is-ok">@Message</p>
+    }
+</article>
+
+@code {
+    private double DataAmount { get; set; } = 1;
+    private string DataUnit { get; set; } = "MiB";
+    private string PayloadInput { get; set; } = "PavelBu lab tools";
+    private string Message { get; set; } = string.Empty;
+
+    private double Bytes => DataUnit switch
+    {
+        "KB" => Clamp(DataAmount) * 1_000,
+        "MB" => Clamp(DataAmount) * 1_000_000,
+        "GB" => Clamp(DataAmount) * 1_000_000_000,
+        "KiB" => Clamp(DataAmount) * 1_024,
+        "MiB" => Clamp(DataAmount) * 1_048_576,
+        "GiB" => Clamp(DataAmount) * 1_073_741_824,
+        _ => Clamp(DataAmount)
+    };
+
+    private string Base64Output => Convert.ToBase64String(Encoding.UTF8.GetBytes(PayloadInput));
+    private string UrlEncodedOutput => Uri.EscapeDataString(PayloadInput);
+
+    private async Task CopyBase64()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", Base64Output);
+        Message = "Base64 copied.";
+    }
+
+    private async Task CopyUrl()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", UrlEncodedOutput);
+        Message = "URL-encoded text copied.";
+    }
+
+    private static double Clamp(double value)
+    {
+        return double.IsFinite(value) && value > 0 ? value : 0;
+    }
+
+    private static string FormatNumber(double value)
+    {
+        return value.ToString("#,0.###", CultureInfo.InvariantCulture);
+    }
+}

@@ -1,0 +1,94 @@
+@using System.Globalization
+
+<article class="tool-surface" aria-labelledby="electronics-title">
+    <header class="tool-header">
+        <div>
+            <p class="eyebrow">Electronics</p>
+            <h2 id="electronics-title">Bench math</h2>
+            <p>Run quick DC checks for Ohm's law and a simple LED series resistor.</p>
+        </div>
+        <span class="status-pill is-ok">@FormatNumber(PowerWatts) W</span>
+    </header>
+
+    <div class="calculator-grid">
+        <section class="calc-panel" aria-labelledby="ohms-title">
+            <h3 id="ohms-title">Ohm's law</h3>
+            <div class="number-grid">
+                <label class="numeric-field">
+                    <span>Voltage, V</span>
+                    <input type="number" step="0.001" @bind="VoltageVolts" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Current, A</span>
+                    <input type="number" step="0.001" @bind="CurrentAmps" />
+                </label>
+            </div>
+        </section>
+
+        <section class="calc-panel" aria-labelledby="led-title">
+            <h3 id="led-title">LED resistor</h3>
+            <div class="number-grid">
+                <label class="numeric-field">
+                    <span>Supply, V</span>
+                    <input type="number" step="0.1" min="0" @bind="LedSupplyVolts" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>LED drop, V</span>
+                    <input type="number" step="0.1" min="0" @bind="LedForwardVolts" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Current, mA</span>
+                    <input type="number" step="0.1" min="0" @bind="LedCurrentMilliAmps" />
+                </label>
+            </div>
+        </section>
+    </div>
+
+    <div class="metric-grid" aria-label="Electronics results">
+        <div>
+            <span>Resistance</span>
+            <strong>@FormatNumber(ResistanceOhms) ohm</strong>
+        </div>
+        <div>
+            <span>Power</span>
+            <strong>@FormatNumber(PowerWatts) W</strong>
+        </div>
+        <div>
+            <span>LED resistor</span>
+            <strong>@FormatNumber(LedResistorOhms) ohm</strong>
+        </div>
+        <div>
+            <span>Resistor power</span>
+            <strong>@FormatNumber(LedResistorWatts) W</strong>
+        </div>
+    </div>
+
+    @if (LedSupplyVolts <= LedForwardVolts)
+    {
+        <p class="tool-message is-error">Supply voltage needs to be higher than the LED forward voltage.</p>
+    }
+</article>
+
+@code {
+    private double VoltageVolts { get; set; } = 12;
+    private double CurrentAmps { get; set; } = 0.5;
+    private double LedSupplyVolts { get; set; } = 5;
+    private double LedForwardVolts { get; set; } = 2;
+    private double LedCurrentMilliAmps { get; set; } = 20;
+
+    private double ResistanceOhms => CurrentAmps == 0 ? 0 : VoltageVolts / CurrentAmps;
+    private double PowerWatts => VoltageVolts * CurrentAmps;
+    private double LedCurrentAmps => LedCurrentMilliAmps / 1_000;
+    private double LedResistorOhms => LedSupplyVolts <= LedForwardVolts || LedCurrentAmps <= 0
+        ? 0
+        : (LedSupplyVolts - LedForwardVolts) / LedCurrentAmps;
+    private double LedResistorWatts => LedCurrentAmps <= 0 ? 0 : Math.Pow(LedCurrentAmps, 2) * LedResistorOhms;
+
+    private static string FormatNumber(double value)
+    {
+        return double.IsFinite(value) ? value.ToString("0.###", CultureInfo.InvariantCulture) : "0";
+    }
+}

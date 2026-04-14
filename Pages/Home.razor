@@ -1,0 +1,72 @@
+@page "/"
+
+<PageTitle>PavelBu Lab Tools</PageTitle>
+
+<main class="app-shell">
+    <section class="tool-picker" aria-labelledby="site-title">
+        <div class="brand-row">
+            <span class="brand-mark" aria-hidden="true">PB</span>
+            <span>PavelBu lab</span>
+        </div>
+
+        <div class="intro-copy">
+            <p class="eyebrow">Static workbench</p>
+            <h1 id="site-title">Small calculators for technical notes.</h1>
+            <p>Radiation, electronics, IT, and X-Ray helpers run locally in the browser.</p>
+        </div>
+
+        <div class="tool-tabs" role="tablist" aria-label="Section list">
+            @foreach (var navItem in Sections)
+            {
+                <button class="tool-tab @(SelectedSection == navItem.Id ? "is-active" : null)"
+                        type="button"
+                        role="tab"
+                        aria-selected="@(SelectedSection == navItem.Id)"
+                        @onclick="() => SelectSection(navItem.Id)">
+                    <img src="@navItem.ImageUrl" alt="" loading="lazy" />
+                    <span>
+                        <strong>@navItem.Name</strong>
+                        <small>@navItem.Description</small>
+                    </span>
+                </button>
+            }
+        </div>
+    </section>
+
+    <section class="tool-stage" aria-live="polite">
+        @switch (SelectedSection)
+        {
+            case "radiation":
+                <RadiationTools />
+                break;
+            case "electronics":
+                <ElectronicsTools />
+                break;
+            case "it":
+                <ItTools />
+                break;
+            case "xray":
+                <XrayTools />
+                break;
+        }
+    </section>
+</main>
+
+@code {
+    private string SelectedSection { get; set; } = "radiation";
+
+    private static readonly SectionNavItem[] Sections =
+    [
+        new("radiation", "Radiation", "Dose-rate notes and unit conversion.", "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=480&q=80"),
+        new("electronics", "Electronics", "Ohm's law and LED resistor math.", "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=480&q=80"),
+        new("it", "IT", "Data size and payload helpers.", "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=480&q=80"),
+        new("xray", "X-Ray", "Distance and mAs reference math.", "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=480&q=80")
+    ];
+
+    private void SelectSection(string sectionId)
+    {
+        SelectedSection = sectionId;
+    }
+
+    private sealed record SectionNavItem(string Id, string Name, string Description, string ImageUrl);
+}

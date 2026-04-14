@@ -1,0 +1,67 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Publish
+        run: dotnet publish PavelBuWebsite.csproj -c Release -o release
+
+      - name: Prepare GitHub Pages artifact
+        shell: bash
+        run: |
+          touch release/wwwroot/.nojekyll
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          base_path="/${repo_name}/"
+
+          if [[ "${repo_name}" == "${GITHUB_REPOSITORY_OWNER}.github.io" ]]; then
+            base_path="/"
+          fi
+
+          sed -i "s|<base href=\"/\" />|<base href=\"${base_path}\" />|g" release/wwwroot/index.html
+          cp release/wwwroot/index.html release/wwwroot/404.html
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: release/wwwroot
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
