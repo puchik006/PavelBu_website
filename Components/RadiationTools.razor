@@ -4,85 +4,173 @@
     <header class="tool-header">
         <div>
             <p class="eyebrow">Radiation</p>
-            <h2 id="radiation-title">Dose notes</h2>
-            <p>Convert simple dose units and estimate accumulated dose from a steady dose rate.</p>
+            <h2 id="radiation-title">Source decay</h2>
+            <p>Calculate Ir-192 or Co-60 activity and reference air kerma rate for a target date.</p>
         </div>
-        <span class="status-pill is-muted">Reference only</span>
+        <span class="status-pill is-muted">@SelectedIsotope.HalfLifeLabel</span>
     </header>
 
     <div class="calculator-grid">
-        <section class="calc-panel" aria-labelledby="dose-rate-title">
-            <h3 id="dose-rate-title">Dose rate</h3>
+        <section class="calc-panel" aria-labelledby="activity-title">
+            <h3 id="activity-title">Activity</h3>
             <div class="number-grid">
                 <label class="numeric-field">
-                    <span>Dose rate, uSv/h</span>
-                    <input type="number" min="0" step="0.001" @bind="DoseRateMicroSvPerHour" />
+                    <span>Isotope</span>
+                    <select @bind="SelectedIsotopeId">
+                        @foreach (var isotope in Isotopes)
+                        {
+                            <option value="@isotope.Id">@isotope.Name</option>
+                        }
+                    </select>
                 </label>
 
                 <label class="numeric-field">
-                    <span>Time, hours</span>
-                    <input type="number" min="0" step="0.01" @bind="ExposureHours" />
+                    <span>Known activity</span>
+                    <input type="number" min="0" step="0.001" @bind="KnownActivity" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Activity unit</span>
+                    <select @bind="ActivityUnit">
+                        <option value="Bq">Bq</option>
+                        <option value="kBq">kBq</option>
+                        <option value="MBq">MBq</option>
+                        <option value="GBq">GBq</option>
+                        <option value="TBq">TBq</option>
+                        <option value="mCi">mCi</option>
+                        <option value="Ci">Ci</option>
+                    </select>
+                </label>
+
+                <label class="numeric-field">
+                    <span>Known on</span>
+                    <input type="date" @bind="KnownDate" />
+                </label>
+
+                <label class="numeric-field">
+                    <span>Target date</span>
+                    <input type="date" @bind="TargetDate" />
                 </label>
             </div>
         </section>
 
-        <section class="calc-panel" aria-labelledby="dose-converter-title">
-            <h3 id="dose-converter-title">Dose converter</h3>
+        <section class="calc-panel" aria-labelledby="rakr-title">
+            <h3 id="rakr-title">Reference air kerma rate</h3>
             <div class="number-grid">
                 <label class="numeric-field">
-                    <span>Dose</span>
-                    <input type="number" min="0" step="0.001" @bind="DoseInput" />
+                    <span>Known RAKR</span>
+                    <input type="number" min="0" step="0.001" @bind="KnownRakr" />
                 </label>
 
                 <label class="numeric-field">
-                    <span>Unit</span>
-                    <select @bind="DoseUnit">
-                        <option value="uSv">uSv</option>
-                        <option value="mSv">mSv</option>
-                        <option value="Sv">Sv</option>
+                    <span>RAKR unit</span>
+                    <select @bind="RakrUnit">
+                        <option value="uGy m^2/h">uGy m^2/h</option>
+                        <option value="cGy cm^2/h">cGy cm^2/h</option>
+                        <option value="uGy/h at 1 m">uGy/h at 1 m</option>
+                        <option value="mGy/h at 1 m">mGy/h at 1 m</option>
                     </select>
                 </label>
             </div>
+
+            <p class="panel-note">RAKR uses the same isotope, known date, and target date as activity.</p>
         </section>
     </div>
 
-    <div class="metric-grid" aria-label="Radiation dose-rate results">
+    <div class="metric-grid" aria-label="Source decay results">
         <div>
-            <span>Total dose</span>
-            <strong>@FormatNumber(TotalMicroSv) uSv</strong>
+            <span>Elapsed days</span>
+            <strong>@FormatNumber(ElapsedDays)</strong>
         </div>
         <div>
-            <span>Total dose</span>
-            <strong>@FormatNumber(TotalMilliSv) mSv</strong>
+            <span>Decay factor</span>
+            <strong>@FormatNumber(DecayFactor)</strong>
         </div>
         <div>
-            <span>Converted</span>
-            <strong>@FormatNumber(ConvertedMicroSv) uSv</strong>
+            <span>Target activity</span>
+            <strong>@FormatActivity(TargetBq)</strong>
         </div>
         <div>
-            <span>Converted</span>
-            <strong>@FormatNumber(ConvertedMilliSv) mSv</strong>
+            <span>Target RAKR</span>
+            <strong>@FormatNumber(TargetRakr) @RakrUnit</strong>
         </div>
     </div>
 
-    <p class="tool-message is-note">For notes and sanity checks only. Use calibrated instruments and local procedures for real radiation safety decisions.</p>
+    <div class="result-strip" aria-label="Activity conversions">
+        <span>@FormatNumber(TargetBq / 1_000_000_000) GBq</span>
+        <span>@FormatNumber(TargetBq / 1_000_000_000_000) TBq</span>
+        <span>@FormatNumber(TargetBq / BqPerCurie) Ci</span>
+    </div>
+
+    @if (!DatesAreValid)
+    {
+        <p class="tool-message is-error">Use valid reference and target dates.</p>
+    }
+    else
+    {
+        <p class="tool-message is-note">For notes and sanity checks only. Use source certificates, calibrated instruments, and local procedures for real radiation safety decisions.</p>
+    }
 </article>
 
 @code {
-    private double DoseRateMicroSvPerHour { get; set; } = 2.5;
-    private double ExposureHours { get; set; } = 8;
-    private double DoseInput { get; set; } = 1;
-    private string DoseUnit { get; set; } = "mSv";
+    private const double BqPerCurie = 37_000_000_000d;
 
-    private double TotalMicroSv => Clamp(DoseRateMicroSvPerHour) * Clamp(ExposureHours);
-    private double TotalMilliSv => TotalMicroSv / 1_000;
-    private double ConvertedMicroSv => DoseUnit switch
+    private static readonly IsotopeData[] Isotopes =
+    [
+        new("ir192", "Ir-192", 73.829, "73.829 d"),
+        new("co60", "Co-60", 1925.23, "1925.23 d")
+    ];
+
+    private string SelectedIsotopeId { get; set; } = "ir192";
+    private double KnownActivity { get; set; } = 370;
+    private string ActivityUnit { get; set; } = "GBq";
+    private DateTime KnownDate { get; set; } = DateTime.Today;
+    private DateTime TargetDate { get; set; } = DateTime.Today.AddDays(30);
+    private double KnownRakr { get; set; } = 1;
+    private string RakrUnit { get; set; } = "uGy m^2/h";
+
+    private IsotopeData SelectedIsotope => Isotopes.First(isotope => isotope.Id == SelectedIsotopeId);
+    private bool DatesAreValid => KnownDate != default && TargetDate != default;
+    private double ElapsedDays => DatesAreValid ? (TargetDate.Date - KnownDate.Date).TotalDays : 0;
+    private double DecayFactor => Math.Pow(0.5, ElapsedDays / SelectedIsotope.HalfLifeDays);
+    private double KnownBq => ToBq(KnownActivity, ActivityUnit);
+    private double TargetBq => KnownBq * DecayFactor;
+    private double TargetRakr => Clamp(KnownRakr) * DecayFactor;
+
+    private static double ToBq(double activity, string unit)
     {
-        "Sv" => Clamp(DoseInput) * 1_000_000,
-        "mSv" => Clamp(DoseInput) * 1_000,
-        _ => Clamp(DoseInput)
-    };
-    private double ConvertedMilliSv => ConvertedMicroSv / 1_000;
+        var value = Clamp(activity);
+        return unit switch
+        {
+            "kBq" => value * 1_000,
+            "MBq" => value * 1_000_000,
+            "GBq" => value * 1_000_000_000,
+            "TBq" => value * 1_000_000_000_000,
+            "mCi" => value * BqPerCurie / 1_000,
+            "Ci" => value * BqPerCurie,
+            _ => value
+        };
+    }
+
+    private static string FormatActivity(double activityBq)
+    {
+        if (activityBq >= 1_000_000_000_000)
+        {
+            return $"{FormatNumber(activityBq / 1_000_000_000_000)} TBq";
+        }
+
+        if (activityBq >= 1_000_000_000)
+        {
+            return $"{FormatNumber(activityBq / 1_000_000_000)} GBq";
+        }
+
+        if (activityBq >= 1_000_000)
+        {
+            return $"{FormatNumber(activityBq / 1_000_000)} MBq";
+        }
+
+        return $"{FormatNumber(activityBq)} Bq";
+    }
 
     private static double Clamp(double value)
     {
@@ -91,6 +179,8 @@
 
     private static string FormatNumber(double value)
     {
-        return value.ToString("0.###", CultureInfo.InvariantCulture);
+        return double.IsFinite(value) ? value.ToString("#,0.###", CultureInfo.InvariantCulture) : "0";
     }
+
+    private sealed record IsotopeData(string Id, string Name, double HalfLifeDays, string HalfLifeLabel);
 }

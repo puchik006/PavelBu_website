@@ -259,6 +259,7 @@ textarea:focus-visible {
 }
 
 .field-block span,
+.numeric-field span,
 .color-field span {
     color: var(--muted);
     font-size: 0.88rem;
@@ -309,6 +310,12 @@ textarea[readonly] {
 .calc-panel h3 {
     margin: 0;
     font-size: 1.05rem;
+}
+
+.panel-note {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.55;
 }
 
 .number-grid {
@@ -410,6 +417,22 @@ textarea[readonly] {
 
 .metric-grid strong {
     font-size: 1.45rem;
+    overflow-wrap: anywhere;
+}
+
+.result-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.result-strip span {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfcfc;
+    color: var(--ink);
+    font-weight: 800;
 }
 
 .tool-message {
